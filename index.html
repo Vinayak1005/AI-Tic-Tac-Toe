@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Tic Tac Toe</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+    
+    :root {
+      --primary: #f59e0b;
+      --primary-dark: #d97706;
+      --secondary: #3b82f6;
+      --dark: #1e293b;
+      --darker: #0f172a;
+    }
+    
+    body {
+      font-family: 'Poppins', sans-serif;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    
+    .animate-enter {
+      animation: fadeIn 0.5s ease-out forwards;
+    }
+    
+    .cell {
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .cell:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .cell.x::before {
+      content: "X";
+      color: var(--primary);
+    }
+    
+    .cell.o::before {
+      content: "O";
+      color: var(--secondary);
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    }
+    
+    .btn-primary:hover {
+      background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+    }
+    
+    .btn-secondary {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+    }
+    
+    .btn-secondary:hover {
+      background: linear-gradient(135deg, #2563eb, #3b82f6);
+    }
+    
+    .btn-danger {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+    }
+    
+    .btn-danger:hover {
+      background: linear-gradient(135deg, #dc2626, #ef4444);
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-gray-900 to-gray-800 min-h-screen flex items-center justify-center p-4">
+
+  <div class="w-full max-w-md mx-auto text-center animate-enter">
+    <div class="mb-8 text-center">
+      <h1 class="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-600 mb-2">
+        Tic Tac Toe
+      </h1>
+      <p class="text-gray-300">Outsmart the AI or challenge a friend!</p>
+    </div>
+
+    <div class="bg-gray-800 rounded-2xl p-6 shadow-2xl border border-gray-700">
+      <div class="mb-6">
+        <div id="status" class="font-semibold text-xl text-white mb-1">Loading...</div>
+        <div class="flex justify-between text-sm text-gray-300">
+          <div id="score" class="bg-gray-700 px-3 py-1 rounded-full">Player: 0 | AI: 0 | Draws: 0</div>
+          <div id="timer" class="bg-gray-700 px-3 py-1 rounded-full">Time: 0s</div>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap justify-center gap-3 mb-6">
+        <button onclick="startGame('one')" class="btn-primary px-4 py-2 rounded-full text-white font-medium transition-all duration-200">
+          <span class="flex items-center justify-center gap-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+            </svg>
+            1 Player
+          </span>
+        </button>
+        <button onclick="startGame('two')" class="btn-primary px-4 py-2 rounded-full text-white font-medium transition-all duration-200">
+          <span class="flex items-center justify-center gap-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v1h8v-1zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-1a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v1h-3zM4.75 12.094A5.973 5.973 0 004 15v1H1v-1a3 3 0 013.75-2.906z" />
+            </svg>
+            2 Players
+          </span>
+        </button>
+        <button onclick="startGame('online')" class="btn-secondary px-4 py-2 rounded-full text-white font-medium transition-all duration-200">
+          <span class="flex items-center justify-center gap-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd" />
+            </svg>
+            Online
+          </span>
+        </button>
+        <button onclick="resetGame()" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-full text-white font-medium transition-all duration-200">
+          <span class="flex items-center justify-center gap-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+            </svg>
+            Reset
+          </span>
+        </button>
+        <button onclick="exitGame()" class="btn-danger px-4 py-2 rounded-full text-white font-medium transition-all duration-200">
+          <span class="flex items-center justify-center gap-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+            Exit
+          </span>
+        </button>
+        <select id="difficulty" onchange="setDifficulty(this.value)" class="bg-gray-700 text-white px-3 py-2 rounded-full border border-gray-600 focus:ring-2 focus:ring-yellow-500 focus:border-transparent">
+          <option value="Easy">Easy</option>
+          <option value="Medium">Medium</option>
+          <option value="Hard" selected>Hard</option>
+        </select>
+      </div>
+
+      <div id="board" class="grid grid-cols-3 gap-3 place-items-center mb-6">
+        <!-- Cells will be generated here -->
+      </div>
+    </div>
+  </div>
+
+  <div id="winOverlay" class="hidden fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4">
+    <div class="text-center max-w-md animate-enter">
+      <h2 id="winMessage" class="text-5xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-yellow-600 animate-pulse">
+        AI Wins!
+      </h2>
+      <button onclick="resetOverlay()" class="btn-primary px-8 py-3 rounded-full text-lg font-semibold transition-all duration-200 transform hover:scale-105">
+        Play Again
+      </button>
+    </div>
+  </div>
+
+  <audio id="clickSound" src="https://www.soundjay.com/buttons/sounds/button-09.mp3"></audio>
+  <audio id="winSound" src="https://www.soundjay.com/human/sounds/applause-8.mp3"></audio>
+  <audio id="drawSound" src="https://www.soundjay.com/mechanical/sounds/magic-chime-01.mp3"></audio>
+
+  <script>
+    const boardEl = document.getElementById("board");
+    const statusEl = document.getElementById("status");
+    const scoreEl = document.getElementById("score");
+    const timerEl = document.getElementById("timer");
+    const clickSound = document.getElementById("clickSound");
+    const winSound = document.getElementById("winSound");
+    const drawSound = document.getElementById("drawSound");
+
+    let board = Array(9).fill("");
+    let currentPlayer = "X";
+    let playerScore = 0, aiScore = 0, draws = 0;
+    let timer = 0, timerInterval = null;
+    let difficulty = "Hard";
+    let mode = "one";
+    let gameActive = true;
+    const playerName = prompt("Enter your name:", "Player") || "Player";
+
+    let socket;
+
+    function startGame(selectedMode) {
+      mode = selectedMode;
+      resetGame();
+      if (mode === 'online') {
+        setupSocket();
+        statusEl.textContent = "Waiting for opponent...";
+      } else {
+        statusEl.textContent = mode === 'two' ? `${playerName}'s turn (X)` : "Your turn (X)";
+      }
+    }
+
+    function setupSocket() {
+      socket = io();
+      socket.on("move", ({ index, symbol }) => {
+        makeMove(index, symbol);
+        const result = checkWinner();
+        if (result) endGame(result);
+        else currentPlayer = symbol === "X" ? "O" : "X";
+      });
+    }
+
+    function resetGame() {
+      board = Array(9).fill("");
+      gameActive = true;
+      currentPlayer = "X";
+      boardEl.innerHTML = "";
+      
+      for (let i = 0; i < 9; i++) {
+        const cell = document.createElement("div");
+        cell.className = `cell bg-gray-700 w-20 h-20 sm:w-24 sm:h-24 flex items-center justify-center rounded-xl cursor-pointer font-bold text-5xl transition-all duration-300`;
+        cell.dataset.index = i;
+        cell.onclick = handleClick;
+        boardEl.appendChild(cell);
+      }
+      
+      clearInterval(timerInterval);
+      timer = 0;
+      timerEl.textContent = "Time: 0s";
+      timerInterval = setInterval(() => {
+        timer++;
+        timerEl.textContent = `Time: ${timer}s`;
+      }, 1000);
+      
+      // Update status based on mode
+      if (mode === 'online') {
+        statusEl.textContent = "Waiting for opponent...";
+      } else {
+        statusEl.textContent = mode === 'two' ? `${playerName}'s turn (X)` : "Your turn (X)";
+      }
+    }
+
+    function resetOverlay() {
+      document.getElementById('winOverlay').classList.add("hidden");
+      resetGame();
+    }
+
+    function exitGame() {
+      if (confirm("Are you sure you want to exit the game?")) {
+        document.body.innerHTML = `
+          <div class="bg-gray-900 w-full min-h-screen flex flex-col items-center justify-center p-6">
+            <div class="text-center max-w-md animate-enter">
+              <h1 class="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-600 mb-6">
+                Thanks for playing!
+              </h1>
+              <p class="text-2xl md:text-3xl text-gray-300 mb-8">See you next time!</p>
+              <div class="mt-8">
+                <button onclick="location.reload()" class="btn-primary px-8 py-3 rounded-full text-lg font-semibold transition-all duration-200 transform hover:scale-105">
+                  Play Again
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    function setDifficulty(level) {
+      difficulty = level;
+      statusEl.textContent = `Difficulty set to ${level}`;
+      setTimeout(() => {
+        if (mode === 'one') {
+          statusEl.textContent = "Your turn (X)";
+        } else if (mode === 'two') {
+          statusEl.textContent = `${playerName}'s turn (X)`;
+        }
+      }, 1500);
+    }
+
+    function handleClick(e) {
+      const idx = e.target.dataset.index;
+      if (!gameActive || board[idx]) return;
+
+      if (mode === 'online') {
+        socket.emit("move", { index: idx, symbol: currentPlayer });
+      }
+
+      makeMove(idx, currentPlayer);
+      clickSound.play();
+
+      const result = checkWinner();
+      if (result) return endGame(result);
+
+      if (mode === 'one' && gameActive) {
+        setTimeout(aiMove, 500); // Slight delay for better UX
+      } else if (mode !== 'online') {
+        currentPlayer = currentPlayer === "X" ? "O" : "X";
+        statusEl.textContent = `${currentPlayer === "X" ? playerName : "Player 2"}'s turn (${currentPlayer})`;
+      }
+    }
+
+    function makeMove(idx, player) {
+      board[idx] = player;
+      const cell = boardEl.children[idx];
+      cell.classList.add(player.toLowerCase());
+      cell.classList.add("pointer-events-none", "bg-gray-600", "shadow-inner");
+      cell.classList.remove("hover:bg-gray-600");
+      
+      // Add animation class
+      cell.classList.add("animate-enter");
+      setTimeout(() => {
+        cell.classList.remove("animate-enter");
+      }, 500);
+    }
+
+    function aiMove() {
+      let idx;
+      if (difficulty === "Easy") {
+        const empty = board.map((v, i) => v === "" ? i : null).filter(v => v !== null);
+        idx = empty[Math.floor(Math.random() * empty.length)];
+      } else {
+        idx = bestMove();
+      }
+      
+      // Show "AI thinking..." status
+      statusEl.textContent = "AI thinking...";
+      
+      // Add delay for better UX
+      setTimeout(() => {
+        makeMove(idx, "O");
+        clickSound.play();
+        const result = checkWinner();
+        if (result) {
+          endGame(result);
+        } else {
+          statusEl.textContent = `${playerName}'s turn (X)`;
+        }
+      }, difficulty === "Hard" ? 800 : 500);
+    }
+
+    function bestMove() {
+      let bestScore = -Infinity, move;
+      for (let i = 0; i < 9; i++) {
+        if (board[i] === "") {
+          board[i] = "O";
+          const score = minimax(board, 0, false);
+          board[i] = "";
+          if (score > bestScore) {
+            bestScore = score;
+            move = i;
+          }
+        }
+      }
+      return move;
+    }
+
+    function minimax(b, depth, isMax) {
+      const winner = checkWinner(b);
+      if (winner === "O") return 10 - depth;
+      if (winner === "X") return depth - 10;
+      if (!b.includes("")) return 0;
+      let best = isMax ? -Infinity : Infinity;
+      for (let i = 0; i < 9; i++) {
+        if (b[i] === "") {
+          b[i] = isMax ? "O" : "X";
+          const val = minimax(b, depth + 1, !isMax);
+          b[i] = "";
+          best = isMax ? Math.max(best, val) : Math.min(best, val);
+        }
+      }
+      return best;
+    }
+
+    function checkWinner(b = board) {
+      const lines = [
+        [0, 1, 2], [3, 4, 5], [6, 7, 8],
+        [0, 3, 6], [1, 4, 7], [2, 5, 8],
+        [0, 4, 8], [2, 4, 6],
+      ];
+      for (let [a, b1, c] of lines) {
+        if (b[a] && b[a] === b[b1] && b[a] === b[c]) {
+          return b[a];
+        }
+      }
+      if (!b.includes("")) return "Draw";
+      return null;
+    }
+
+    function endGame(winner) {
+      clearInterval(timerInterval);
+      gameActive = false;
+      
+      // Highlight winning cells
+      const lines = [
+        [0, 1, 2], [3, 4, 5], [6, 7, 8],
+        [0, 3, 6], [1, 4, 7], [2, 5, 8],
+        [0, 4, 8], [2, 4, 6],
+      ];
+      
+      for (let [a, b, c] of lines) {
+        if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+          boardEl.children[a].classList.add("bg-yellow-500", "bg-opacity-30");
+          boardEl.children[b].classList.add("bg-yellow-500", "bg-opacity-30");
+          boardEl.children[c].classList.add("bg-yellow-500", "bg-opacity-30");
+        }
+      }
+
+      let winMessage = '';
+      if (winner === "X") {
+        winMessage = `${playerName} Wins!`;
+        playerScore++;
+        winSound.play();
+      } else if (winner === "O") {
+        winMessage = `AI Wins!`;
+        aiScore++;
+        winSound.play();
+      } else {
+        winMessage = `It's a Draw!`;
+        draws++;
+        drawSound.play();
+      }
+
+      document.getElementById('winMessage').textContent = winMessage;
+      document.getElementById('winOverlay').classList.remove("hidden");
+      scoreEl.textContent = `${playerName}: ${playerScore} | AI: ${aiScore} | Draws: ${draws}`;
+    }
+
+    // Initialize game
+    startGame('one');
+  </script>
+</body>
+</html>
